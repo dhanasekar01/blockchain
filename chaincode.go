@@ -180,6 +180,18 @@ func (t *SimpleChaincode) createCattle(stub shim.ChaincodeStubInterface, args []
 
 	cattles.Cattle = append(cattles.Cattle, cattle.CattleTag)
 
+	bytes, err = json.Marshal(cattles)
+
+	if err != nil {
+		fmt.Print("Error creating V5C_Holder record")
+	}
+
+	err = stub.PutState("cattleids", bytes)
+
+	if err != nil {
+		return nil, errors.New("Unable to put the state")
+	}
+
 	return nil, nil
 }
 
