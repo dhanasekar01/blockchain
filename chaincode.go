@@ -133,10 +133,12 @@ func (t *SimpleChaincode) createCattle(stub shim.ChaincodeStubInterface, args []
 
 	bytes, err := stub.GetState(args[3])
 
-	err = json.Unmarshal(bytes, &cattletag)
+	if bytes != nil {
+		err = json.Unmarshal(bytes, &cattletag)
 
-	if cattletag != "" {
-		return nil, errors.New(fmt.Sprintf("Cattle Already Present"))
+		if cattletag != "" {
+			return nil, errors.New(fmt.Sprintf("Cattle Already Present"))
+		}
 	}
 
 	cattle := Cattle{
