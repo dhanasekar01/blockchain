@@ -92,8 +92,7 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 		return t.read(stub, args)
 	} else if function == "getCattle" {
 		return t.getCattle(stub, args)
-	}
-	else if function == "getAllCattle" {
+	} else if function == "getAllCattle" {
 		return t.getAllCattle(stub, args)
 	}
 
@@ -203,7 +202,7 @@ func (t *SimpleChaincode) getAllCattle(stub shim.ChaincodeStubInterface, args []
 
 	valAsbytes, err := stub.GetState("cattleids")
 	if err != nil {
-		jsonResp = "{\"Error\":\"Failed to get state for " + key + "\"}"
+		jsonResp = "{\"Error\":\"Failed to get state for cattleids \"}"
 		return nil, errors.New(jsonResp)
 	}
 
