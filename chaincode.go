@@ -245,39 +245,12 @@ func (t *SimpleChaincode) getCattleTrans(stub shim.ChaincodeStubInterface, args 
 }
 
 // Create Cattle Transfer
-
-type Transfer struct {
-	Id     string `json:"id"`
-	Value  string `json:"value"`
-	Header string `json:"header"`
-	From   string `json:"from"`
-	To     string `json:"to"`
-	Date   string `json:"date"`
-}
-
 type TransferDetail struct {
 	Transfer []string `json:"transfer"`
 }
 
 func (t *SimpleChaincode) createCattleTransfer(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	var err error
-	transfer := Transfer{
-		Id:     args[0], // TAG01
-		Value:  args[1], // cattlehdr
-		Header: args[2], // Transfered to Typon Fresh Meat
-		From:   args[3], // American Farmer
-		To:     args[4], // Typon Fresh Meat
-		Date:   args[5], // Date
-	}
-
-	Id := "\"id\":\"" + transfer.Id + "\", " // Variables to define the JSON
-	Value := "\"value\":\"" + transfer.Value + "\", "
-	Header := "\"header\":\"" + transfer.Header + "\", "
-	From := "\"from\":\"" + transfer.From + "\", "
-	To := "\"to\":\"" + transfer.To + "\", "
-	Date := "\"date\":\"" + transfer.Date + "\","
-
-	transferjson := "{" + Id + Value + Header + From + To + Date + "}"
 
 	// Creat or update Transaction in From side
 	var transferFromdetails TransferDetail
@@ -288,17 +261,9 @@ func (t *SimpleChaincode) createCattleTransfer(stub shim.ChaincodeStubInterface,
 
 	err = json.Unmarshal(transferFrombytes, &transferFromdetails)
 
-	if err != nil {
-		return nil, errors.New("Corrupt Transaction record")
-	}
-
-	transferFromdetails.Transfer = append(transferFromdetails.Transfer, transferjson)
+	transferFromdetails.Transfer = append(transferFromdetails.Transfer, args[0])
 	transferFrombytes, err = json.Marshal(transferFromdetails)
-	err = stub.PutState(transfer.From, transferFrombytes)
-
-	if err != nil {
-		return nil, errors.New("Corrupt Transaction record")
-	}
+	err = stub.PutState(args[3], transferFrombytes)
 
 	// Creat or update Transaction in To side
 	var transferTodetails TransferDetail
@@ -306,40 +271,21 @@ func (t *SimpleChaincode) createCattleTransfer(stub shim.ChaincodeStubInterface,
 
 	err = json.Unmarshal(transferTobytes, &transferTodetails)
 
-	if err != nil {
-		return nil, errors.New("Corrupt Transaction record")
-	}
-
-	transferTodetails.Transfer = append(transferTodetails.Transfer, transferjson)
+	transferTodetails.Transfer = append(transferTodetails.Transfer, args[0])
 	transferTobytes, err = json.Marshal(transferTodetails)
-	err = stub.PutState(transfer.To, transferTobytes)
+	err = stub.PutState(args[4], transferTobytes)
 
 	if err != nil {
 		return nil, errors.New("Corrupt Transaction record")
 	}
 
-	var arg []string
-	arg[0] = transfer.Value
-	arg[1] = transfer.Id
-	arg[2] = args[6]
-	arg[3] = args[7]
-	arg[4] = args[8]
-	arg[5] = args[9]
-
-	return t.updateHdr(stub, arg)
+	return t.updateHdr(stub, args)
 
 }
 
 func (t *SimpleChaincode) updateHdr(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	// Create and Update Cattle Header
-	hdr := args[0] + args[1]
-
-	headerBlock := "\"block\":\"" + args[2] + "\", " // Variables to define the JSON
-	headerType := "\"type\":\"" + args[3] + "\", "
-	headerValue := "\"value\":\"" + args[4] + "\", "
-	prevHash := "\"prevHash\":\"" + args[5] + "\", "
-
-	headerjson := "{" + headerBlock + headerType + headerValue + prevHash + "}"
+	hdr := args[1]
 
 	bytes, err := stub.GetState(hdr)
 
@@ -350,7 +296,7 @@ func (t *SimpleChaincode) updateHdr(stub shim.ChaincodeStubInterface, args []str
 	var headers CattleHeader
 
 	err = json.Unmarshal(bytes, &headers)
-	headers.Blockheader = append(headers.Blockheader, headerjson)
+	headers.Blockheader = append(headers.Blockheader, args[2])
 
 	bytes, err = json.Marshal(headers)
 	err = stub.PutState(hdr, bytes)
