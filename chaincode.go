@@ -19,21 +19,6 @@ const SLAUGHTERHOUSE = "slaughterhouse"
 type SimpleChaincode struct {
 }
 
-type Cattle struct {
-	Species    string  `json:"species"`
-	CattleType string  `json:"cattletype"`
-	CattleId   string  `json:"cattleid"`
-	CattleTag  string  `json:"cattletag"`
-	Birthdate  string  `json:"birthdate"`
-	Weight     float64 `json:"weight"`
-	FarmerId   string  `json:"farmerid"`
-	Status     string  `json:"status"`
-}
-
-type Farmer struct {
-	Cattle []string `json:"cattle"`
-}
-
 func main() {
 	err := shim.Start(new(SimpleChaincode))
 	if err != nil {
@@ -71,12 +56,10 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 	fmt.Println("invoke is running " + function)
 
 	// Handle different functions
-	if function == "init" {
-		return t.Init(stub, "init", args)
-	} else if function == "write" {
-		return t.write(stub, args)
-	} else if function == "createCattle" {
+	if function == "createCattle" {
 		return t.createCattle(stub, args)
+	} else if function == "createCattleTransfer" {
+		return t.createCattleTransfer(stub, args)
 	}
 	fmt.Println("invoke did not find func: " + function)
 
@@ -88,12 +71,12 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 	fmt.Println("query is running " + function)
 
 	// Handle different functions
-	if function == "read" { //read a variable
-		return t.read(stub, args)
-	} else if function == "getCattle" {
+	if function == "getCattle" {
 		return t.getCattle(stub, args)
 	} else if function == "getAllCattle" {
 		return t.getAllCattle(stub, args)
+	} else if function == "getCattleTrans" {
+		return t.getCattleTrans(stub, args)
 	}
 
 	fmt.Println("query did not find func: " + function)
@@ -101,28 +84,31 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 	return nil, errors.New("Received unknown function query: " + function)
 }
 
-// write - invoke function to write key/value pair
-func (t *SimpleChaincode) write(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-	var key, value string
-	var err error
-	fmt.Println("running write()")
+// Peer one functions
 
-	if len(args) != 2 {
-		return nil, errors.New("Incorrect number of arguments. Expecting 2. name of the key and value to set")
-	}
+type Cattle struct {
+	Species    string  `json:"species"`
+	CattleType string  `json:"cattletype"`
+	CattleId   string  `json:"cattleid"`
+	CattleTag  string  `json:"cattletag"`
+	Birthdate  string  `json:"birthdate"`
+	Weight     float64 `json:"weight"`
+	FarmerId   string  `json:"farmerid"`
+	Status     string  `json:"status"`
+}
 
-	key = args[0] //rename for funsies
-	value = args[1]
-	err = stub.PutState(key, []byte(value)) //write the variable into the chaincode state
-	if err != nil {
-		return nil, err
-	}
-	return nil, nil
+type Farmer struct {
+	Cattle []string `json:"cattle"`
+}
+
+type CattleHeader struct {
+	Blockheader []string `json:"blockheader"`
 }
 
 func (t *SimpleChaincode) createCattle(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	var err error
 	var cattletag string
+
 	fmt.Println("Initializing Cattle Creation")
 
 	weight, err := strconv.ParseFloat(args[5], 64)
@@ -170,6 +156,7 @@ func (t *SimpleChaincode) createCattle(stub shim.ChaincodeStubInterface, args []
 		return nil, errors.New("Unable to get cattleids")
 	}
 
+	// Create Cattle List
 	var cattles Farmer
 
 	err = json.Unmarshal(bytes, &cattles)
@@ -182,15 +169,33 @@ func (t *SimpleChaincode) createCattle(stub shim.ChaincodeStubInterface, args []
 
 	bytes, err = json.Marshal(cattles)
 
-	if err != nil {
-		fmt.Print("Error creating V5C_Holder record")
-	}
-
 	err = stub.PutState("cattleids", bytes)
 
 	if err != nil {
 		return nil, errors.New("Unable to put the state")
 	}
+	// Create Empty Blockheader list
+	var blank []string
+	blankBytes, _ := json.Marshal(&blank)
+	var cattletaghdr string
+
+	cattletaghdr = "cattlehdr-" + args[3]
+	// Create Block Header json
+	headerBlock := "\"block\":\"" + args[8] + "\", " // Variables to define the JSON
+	headerType := "\"type\":\"Create\", "
+	headerValue := "\"value\":\"" + args[9] + "\", "
+	prevHash := "\"prevHash\":\"" + args[10] + "\", "
+
+	headerjson := "{" + headerBlock + headerType + headerValue + prevHash + "}"
+
+	// save Blockheader
+	var cattleheaders CattleHeader
+
+	err = json.Unmarshal(blankBytes, &cattleheaders)
+	cattleheaders.Blockheader = append(cattleheaders.Blockheader, headerjson)
+
+	bytes, err = json.Marshal(cattleheaders)
+	err = stub.PutState(cattletaghdr, bytes)
 
 	return nil, nil
 }
@@ -209,7 +214,7 @@ func (t *SimpleChaincode) getCattle(stub shim.ChaincodeStubInterface, args []str
 	return valAsbytes, nil
 }
 
-// read cattle
+// Get all cattle
 func (t *SimpleChaincode) getAllCattle(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	var jsonResp string
 	var err error
@@ -223,21 +228,112 @@ func (t *SimpleChaincode) getAllCattle(stub shim.ChaincodeStubInterface, args []
 	return valAsbytes, nil
 }
 
-// read - query function to read key/value pair
-func (t *SimpleChaincode) read(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-	var key, jsonResp string
+// Get all Cattle Transaction
+func (t *SimpleChaincode) getCattleTrans(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	var jsonResp string
 	var err error
 
-	if len(args) != 1 {
-		return nil, errors.New("Incorrect number of arguments. Expecting name of the key to query")
-	}
-
-	key = args[0]
-	valAsbytes, err := stub.GetState(key)
+	valAsbytes, err := stub.GetState("cattlehdr-" + args[0])
 	if err != nil {
-		jsonResp = "{\"Error\":\"Failed to get state for " + key + "\"}"
+		jsonResp = "{\"Error\":\"Failed to get state for Cattle Transactions \"}"
 		return nil, errors.New(jsonResp)
 	}
 
 	return valAsbytes, nil
+}
+
+// Create Cattle Transfer
+
+type Transfer struct {
+	Id     string `json:"id"`
+	Value  string `json:"value"`
+	Header string `json:"header"`
+	From   string `json:"from"`
+	To     string `json:"to"`
+	Date   string `json:"date"`
+}
+
+type TransferDetail struct {
+	Transfer []string `json:"transfer"`
+}
+
+func (t *SimpleChaincode) createCattleTransfer(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	transfer := Transfer{
+		Id:     args[0],
+		Value:  args[1],
+		Header: args[2],
+		From:   args[3],
+		To:     args[4],
+		Date:   args[5],
+	}
+
+	Id := "\"id\":\"" + transfer.Id + "\", " // Variables to define the JSON
+	Value := "\"value\":\"" + transfer.Value + "\", "
+	Header := "\"header\":\"" + transfer.Header + "\", "
+	From := "\"from\":\"" + transfer.From + "\", "
+	To := "\"to\":\"" + transfer.To + "\", "
+	Date := "\"date\":\"" + transfer.Date + "\","
+
+	transferjson := "{" + Id + Value + Header + From + To + Date + "}"
+
+	// Creat or update Transaction in From side
+	var transferFromdetails TransferDetail
+
+	transferFrombytes, err := stub.GetState(transfer.From)
+
+	if err != nil {
+		return nil, errors.New("Corrupt Transaction record")
+	}
+
+	err = json.Unmarshal(transferFrombytes, &transferFromdetails)
+	transferFromdetails.Transfer = append(transferFromdetails.Transfer, transferjson)
+	transferFrombytes, err = json.Marshal(transferFromdetails)
+	err = stub.PutState(transfer.From, transferFrombytes)
+
+	// Creat or update Transaction in To side
+	var transferTodetails TransferDetail
+	transferTobytes, err := stub.GetState(transfer.To)
+	err = json.Unmarshal(transferTobytes, &transferTodetails)
+	transferTodetails.Transfer = append(transferTodetails.Transfer, transferjson)
+	transferFrombytes, err = json.Marshal(transferTodetails)
+	err = stub.PutState(transfer.To, transferFrombytes)
+
+	var arg []string
+	arg[0] = transfer.Value
+	arg[1] = transfer.Id
+	arg[2] = args[6]
+	arg[3] = args[7]
+	arg[4] = args[8]
+	arg[5] = args[9]
+
+	return t.updateHdr(stub, arg)
+
+}
+
+func (t *SimpleChaincode) updateHdr(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	// Create and Update Cattle Header
+	hdr := args[0] + "-" + args[1]
+
+	headerBlock := "\"block\":\"" + args[2] + "\", " // Variables to define the JSON
+	headerType := "\"type\":\"" + args[3] + "\", "
+	headerValue := "\"value\":\"" + args[4] + "\", "
+	prevHash := "\"prevHash\":\"" + args[5] + "\", "
+
+	headerjson := "{" + headerBlock + headerType + headerValue + prevHash + "}"
+
+	bytes, err := stub.GetState(hdr)
+
+	if err != nil {
+		return nil, errors.New("Corrupt Transaction record")
+	}
+
+	var headers CattleHeader
+
+	err = json.Unmarshal(bytes, &headers)
+	headers.Blockheader = append(headers.Blockheader, headerjson)
+
+	bytes, err = json.Marshal(headers)
+	err = stub.PutState(hdr, bytes)
+
+	return nil, nil
 }
