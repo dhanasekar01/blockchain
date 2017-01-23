@@ -45,6 +45,7 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string
 	blankBytes, _ := json.Marshal(&blank)
 
 	err := stub.PutState("cattleids", blankBytes)
+	err = stub.PutState("rmids", blankBytes)
 	if err != nil {
 		fmt.Println("Failed to initialize cattle Id collection")
 	}
@@ -62,6 +63,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.createCattle(stub, args)
 	} else if function == "createCattleTransfer" {
 		return t.createCattleTransfer(stub, args)
+	} else if function == "createRM" {
+		return t.createRM(stub, args)
 	}
 	fmt.Println("invoke did not find func: " + function)
 
@@ -79,6 +82,8 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 		return t.getAllCattle(stub, args)
 	} else if function == "getCattleTrans" {
 		return t.getCattleTrans(stub, args)
+	} else if function == "getAllRM" {
+		return t.getAllRM(stub, args)
 	}
 
 	fmt.Println("query did not find func: " + function)
@@ -89,14 +94,15 @@ func (t *SimpleChaincode) Query(stub shim.ChaincodeStubInterface, function strin
 // Peer one functions
 
 type Cattle struct {
-	Species    string  `json:"species"`
-	CattleType string  `json:"cattletype"`
-	CattleId   string  `json:"cattleid"`
-	CattleTag  string  `json:"cattletag"`
-	Birthdate  string  `json:"birthdate"`
-	Weight     float64 `json:"weight"`
-	FarmerId   string  `json:"farmerid"`
-	Status     string  `json:"status"`
+	Species     string  `json:"species"`
+	CattleType  string  `json:"cattletype"`
+	CattleId    string  `json:"cattleid"`
+	CattleTag   string  `json:"cattletag"`
+	Birthdate   string  `json:"birthdate"`
+	Weight      float64 `json:"weight"`
+	FarmerId    string  `json:"farmerid"`
+	Status      string  `json:"status"`
+	Certificate string  `json:"certificate"`
 }
 
 type Farmer struct {
@@ -130,14 +136,15 @@ func (t *SimpleChaincode) createCattle(stub shim.ChaincodeStubInterface, args []
 	}
 
 	cattle := Cattle{
-		Species:    args[0],
-		CattleType: args[1],
-		CattleId:   args[2],
-		CattleTag:  args[3],
-		Birthdate:  args[4],
-		Weight:     weight,
-		FarmerId:   args[6],
-		Status:     args[7],
+		Species:     args[0],
+		CattleType:  args[1],
+		CattleId:    args[2],
+		CattleTag:   args[3],
+		Birthdate:   args[4],
+		Weight:      weight,
+		FarmerId:    args[6],
+		Status:      args[7],
+		Certificate: args[11],
 	}
 
 	bytes, err = json.Marshal(&cattle)
@@ -186,7 +193,7 @@ func (t *SimpleChaincode) createCattle(stub shim.ChaincodeStubInterface, args []
 	headerBlock := "\"block\":\"" + args[8] + "\", " // Variables to define the JSON
 	headerType := "\"type\":\"Create\", "
 	headerValue := "\"value\":\"" + args[9] + "\", "
-	prevHash := "\"prevHash\":\"" + args[10] + "\", "
+	prevHash := "\"prevHash\":\"" + args[10] + "\""
 
 	headerjson := "{" + headerBlock + headerType + headerValue + prevHash + "}"
 
@@ -300,6 +307,117 @@ func (t *SimpleChaincode) updateHdr(stub shim.ChaincodeStubInterface, args []str
 
 	bytes, err = json.Marshal(headers)
 	err = stub.PutState(hdr, bytes)
+
+	return nil, nil
+}
+
+type Rawmeat struct {
+	RawmeatId   string  `json:"rawmeatid"`
+	Weight      float64 `json:"weight"`
+	CreatedDate string  `json:"createddate"`
+	SourceTag   string  `json:"sourcetag"`
+	Company     string  `json:"company"`
+}
+
+type Slaughter struct {
+	Rawmeat []string `json:"rawmeats"`
+}
+
+// Get all cattle
+func (t *SimpleChaincode) getAllRM(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	var jsonResp string
+	var err error
+
+	valAsbytes, err := stub.GetState("rmids")
+	if err != nil {
+		jsonResp = "{\"Error\":\"Failed to get state for rmids \"}"
+		return nil, errors.New(jsonResp)
+	}
+
+	return valAsbytes, nil
+}
+
+// Peer Two function
+func (t *SimpleChaincode) createRM(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	fmt.Println("Initializing Raw meat Creation")
+
+	weight, err := strconv.ParseFloat(args[1], 64)
+
+	if args[6] != SLAUGHTERHOUSE { // Only the farmer can create a cattle
+		return nil, errors.New(fmt.Sprintf("Permission Denied. Create rawmeat . %v === %v", args[6], SLAUGHTERHOUSE))
+	}
+
+	rawmeat := Rawmeat{
+		RawmeatId:   args[0],
+		Weight:      weight,
+		CreatedDate: args[2],
+		SourceTag:   args[3],
+		Company:     args[4],
+	}
+
+	bytes, err := json.Marshal(&rawmeat)
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = stub.PutState(rawmeat.RawmeatId, bytes)
+
+	if err != nil {
+		return nil, err
+	}
+
+	bytes, err = stub.GetState("rmids")
+
+	if err != nil {
+		return nil, errors.New("Unable to get rmids")
+	}
+
+	// Create Cattle List
+	var rawmeats Slaughter
+
+	err = json.Unmarshal(bytes, &rawmeats)
+
+	if err != nil {
+		return nil, errors.New("Corrupt Farmer record")
+	}
+
+	rawmeats.Rawmeat = append(rawmeats.Rawmeat, rawmeat.RawmeatId)
+
+	bytes, err = json.Marshal(rawmeats)
+
+	err = stub.PutState("rmids", bytes)
+
+	if err != nil {
+		return nil, errors.New("Unable to put the state")
+	}
+	// Create Empty Blockheader list
+	var blank []string
+	blankBytes, _ := json.Marshal(&blank)
+	var cattletaghdr string
+
+	cattletaghdr = "rawmeathdr-" + args[0]
+	// Create Block Header json
+	headerBlock := "\"block\":\"" + args[5] + "\", " // Variables to define the JSON
+	headerType := "\"type\":\"RAWMEATCREATION\", "
+	headerValue := "\"value\":\"" + args[6] + "\", "
+	prevHash := "\"prevHash\":\"" + args[7] + "\""
+
+	headerjson := "{" + headerBlock + headerType + headerValue + prevHash + "}"
+
+	// save Blockheader
+	var cattleheaders CattleHeader
+
+	err = json.Unmarshal(blankBytes, &cattleheaders)
+	cattleheaders.Blockheader = append(cattleheaders.Blockheader, headerjson)
+
+	bytes, err = json.Marshal(cattleheaders)
+	err = stub.PutState(cattletaghdr, bytes)
+
+	var arguments []string
+	arguments[1] = "cattlehdr-" + rawmeat.SourceTag
+	arguments[2] = headerjson
+	t.updateHdr(stub, arguments)
 
 	return nil, nil
 }
