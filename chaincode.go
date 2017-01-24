@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
@@ -251,20 +252,85 @@ func (t *SimpleChaincode) getCattleTrans(stub shim.ChaincodeStubInterface, args 
 	return valAsbytes, nil
 }
 
+type Batch struct {
+	Batchid   string   `json:"batchid"`
+	Taglist   []string `json:"taglist"`
+	Batchhdr  string   `json:"batchhdr"`
+	Batchdate string   `json:"batchdate"`
+	Source    string   `json:"source"`
+	SourceHdr string   `json:"sourcehdr"`
+}
+
+type BatchList struct {
+	Batch []string
+}
+
+// Create Batch
+func (t *SimpleChaincode) createBatch(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	// args 0 = "Farmername", 1 = "Batchid" , 2 = "[\"T01\",\"T02\"]" list of tags , 3 = batch date, 3 = sourcehdr
+
+	batchkey := "batchids-" + args[0]
+
+	batchidbytes, _ := stub.GetState(batchkey)
+
+	// Create/update soruce's Batch List
+	var batchlist BatchList
+
+	err := json.Unmarshal(batchidbytes, &batchlist)
+
+	batchlist.Batch = append(batchlist.Batch, args[1])
+
+	batchidbytes, err = json.Marshal(batchlist)
+
+	err = stub.PutState(batchkey, batchidbytes)
+
+	// Create taglist
+	liststring := args[2]
+
+	var list []string
+
+	dec := json.NewDecoder(strings.NewReader(liststring))
+	dec.Decode(&list)
+
+	// Create Batch
+
+	batch := Batch{
+		Batchid:   args[1],
+		Taglist:   list,
+		Batchhdr:  batchkey,
+		Batchdate: args[3],
+		Source:    args[0],
+		SourceHdr: args[4],
+	}
+
+	bytes, _ := json.Marshal(&batch)
+
+	err = stub.PutState(batch.Batchid, bytes)
+
+	// Create Empty Blockheader list
+	var blank []string
+	blank[1] = args[4]
+	blank[2] = args[5]
+
+	t.updateHdr(stub, blank)
+
+	if err != nil {
+		return nil, errors.New("Corrupt Transaction record")
+	}
+
+	return nil, nil
+}
+
 // Create Cattle Transfer
 type TransferDetail struct {
 	Transfer []string `json:"transfer"`
 }
 
 func (t *SimpleChaincode) createCattleTransfer(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-	var err error
-
 	// Creat or update Transaction in From side
 	var transferFromdetails TransferDetail
 
-	// Create Empty Blockheader list
-	var blank []string
-	transferFrombytes, _ := json.Marshal(&blank)
+	transferFrombytes, err := stub.GetState(args[3])
 
 	err = json.Unmarshal(transferFrombytes, &transferFromdetails)
 
@@ -274,7 +340,7 @@ func (t *SimpleChaincode) createCattleTransfer(stub shim.ChaincodeStubInterface,
 
 	// Creat or update Transaction in To side
 	var transferTodetails TransferDetail
-	transferTobytes, _ := json.Marshal(&blank)
+	transferTobytes, err := stub.GetState(args[3])
 
 	err = json.Unmarshal(transferTobytes, &transferTodetails)
 
@@ -291,7 +357,7 @@ func (t *SimpleChaincode) createCattleTransfer(stub shim.ChaincodeStubInterface,
 }
 
 func (t *SimpleChaincode) updateHdr(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
-	// Create and Update Cattle Header
+	// Create and Update Cattle Header, Rawmeat and food pkg
 	hdr := args[1]
 
 	bytes, err := stub.GetState(hdr)
@@ -316,7 +382,10 @@ type Rawmeat struct {
 	Weight      float64 `json:"weight"`
 	CreatedDate string  `json:"createddate"`
 	SourceTag   string  `json:"sourcetag"`
+	ExpireDate  string  `json:"expiredate"`
+	Temperature string  `json:"temperature"`
 	Company     string  `json:"company"`
+	Certificate string  `json:"certificate"`
 }
 
 type Slaughter struct {
@@ -352,7 +421,10 @@ func (t *SimpleChaincode) createRM(stub shim.ChaincodeStubInterface, args []stri
 		Weight:      weight,
 		CreatedDate: args[2],
 		SourceTag:   args[3],
-		Company:     args[4],
+		ExpireDate:  args[4],
+		Temperature: args[5],
+		Company:     args[6],
+		Certificate: args[7],
 	}
 
 	bytes, err := json.Marshal(&rawmeat)
@@ -398,10 +470,10 @@ func (t *SimpleChaincode) createRM(stub shim.ChaincodeStubInterface, args []stri
 
 	cattletaghdr = "rawmeathdr-" + args[0]
 	// Create Block Header json
-	headerBlock := "\"block\":\"" + args[5] + "\", " // Variables to define the JSON
+	headerBlock := "\"block\":\"" + args[8] + "\", " // Variables to define the JSON
 	headerType := "\"type\":\"RAWMEATCREATION\", "
-	headerValue := "\"value\":\"" + args[6] + "\", "
-	prevHash := "\"prevHash\":\"" + args[7] + "\""
+	headerValue := "\"value\":\"" + args[0] + "\", "
+	prevHash := "\"prevHash\":\"" + args[9] + "\""
 
 	headerjson := "{" + headerBlock + headerType + headerValue + prevHash + "}"
 
@@ -418,6 +490,125 @@ func (t *SimpleChaincode) createRM(stub shim.ChaincodeStubInterface, args []stri
 	arguments[1] = "cattlehdr-" + rawmeat.SourceTag
 	arguments[2] = headerjson
 	t.updateHdr(stub, arguments)
+
+	return nil, nil
+}
+
+type FoodPack struct {
+	Foodpackid          string  `json:"foodpackid"`
+	Weight              float64 `json:"weight"`
+	CreatedDate         string  `json:"createddate"`
+	SourceTag           string  `json:"sourcetag"`
+	ExpireDate          string  `json:"expiredate"`
+	Temperature         string  `json:"temperature"`
+	Company             string  `json:"company"`
+	PerservationProcess string  `json:"perservationprocess"`
+	Certificate         string  `json:"certificate"`
+	PackageType         string  `json:"packagetype"`
+	Productstate        string  `json:"productstate"`
+	Primalcut           string  `json:"partname"`
+}
+
+type Foodmfg struct {
+	FoodPack []string `json:"foodpack"`
+}
+
+func (t *SimpleChaincode) createFoodPack(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+	fmt.Println("Initializing Food pack Creation")
+
+	weight, err := strconv.ParseFloat(args[1], 64)
+
+	if args[6] != MANUFACTURER { // Only the farmer can create a cattle
+		return nil, errors.New(fmt.Sprintf("Permission Denied. Create food pack . %v === %v", args[6], MANUFACTURER))
+	}
+
+	foodpack := FoodPack{
+		Foodpackid:          args[0],
+		Weight:              weight,
+		CreatedDate:         args[2],
+		SourceTag:           args[3],
+		ExpireDate:          args[4],
+		Temperature:         args[5],
+		Company:             args[6],
+		PerservationProcess: args[7],
+		Certificate:         args[8],
+		PackageType:         args[9],
+		Productstate:        args[10],
+		Primalcut:           args[11],
+	}
+
+	bytes, err := json.Marshal(&foodpack)
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = stub.PutState(foodpack.Foodpackid, bytes)
+
+	if err != nil {
+		return nil, err
+	}
+
+	bytes, err = stub.GetState("foodpackids")
+
+	if err != nil {
+		return nil, errors.New("Unable to get foodpackid")
+	}
+
+	// Create food List
+	var foodpacks Foodmfg
+
+	err = json.Unmarshal(bytes, &foodpacks)
+
+	if err != nil {
+		return nil, errors.New("Corrupt food pkg record")
+	}
+
+	foodpacks.FoodPack = append(foodpacks.FoodPack, foodpack.Foodpackid)
+
+	bytes, err = json.Marshal(foodpacks)
+
+	err = stub.PutState("foodpackids", bytes)
+
+	if err != nil {
+		return nil, errors.New("Unable to put the state")
+	}
+	// Create Empty Blockheader list
+	var blank []string
+	blankBytes, _ := json.Marshal(&blank)
+	var taghdr string
+
+	taghdr = "foodpackhdr-" + args[0]
+	// Create Block Header json
+	headerBlock := "\"block\":\"" + args[12] + "\", " // Variables to define the JSON
+	headerType := "\"type\":\"PACKAGING\", "
+	headerValue := "\"value\":\"" + args[13] + "\", "
+	prevHash := "\"prevHash\":\"" + args[14] + "\""
+
+	headerjson := "{" + headerBlock + headerType + headerValue + prevHash + "}"
+
+	// save Blockheader
+	var cattleheaders CattleHeader
+
+	err = json.Unmarshal(blankBytes, &cattleheaders)
+	cattleheaders.Blockheader = append(cattleheaders.Blockheader, headerjson)
+
+	bytes, err = json.Marshal(cattleheaders)
+	err = stub.PutState(taghdr, bytes)
+
+	var arguments []string
+	arguments[0] = ""
+	arguments[1] = "rawmeathdr-" + foodpack.SourceTag
+	arguments[2] = headerjson
+
+	t.updateHdr(stub, arguments) // update raw meat header
+
+	var arguments1 []string
+	arguments1[0] = ""
+	arguments1[1] = args[15]
+	arguments1[2] = headerjson
+
+	t.updateHdr(stub, arguments1) // update cattle header
 
 	return nil, nil
 }
