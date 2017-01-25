@@ -66,7 +66,12 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.createCattleTransfer(stub, args)
 	} else if function == "createRM" {
 		return t.createRM(stub, args)
+	} else if function == "createBatch" {
+		return t.createBatch(stub, args)
+	} else if function == "createFoodPack" {
+		return t.createFoodPack(stub, args)
 	}
+
 	fmt.Println("invoke did not find func: " + function)
 
 	return nil, errors.New("Received unknown function invocation: " + function)
