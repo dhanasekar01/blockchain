@@ -312,12 +312,14 @@ func (t *SimpleChaincode) createBatch(stub shim.ChaincodeStubInterface, args []s
 
 	err = stub.PutState(batch.Batchid, bytes)
 
-	// Create Empty Blockheader list
-	var blank []string
-	blank[1] = args[4]
-	blank[2] = args[5]
+	for _, tag := range list {
+		// Notify Each tag when the block is created
+		var blank []string
+		blank[1] = batch.SourceHdr + tag
+		blank[2] = args[5]
 
-	t.updateHdr(stub, blank)
+		t.updateHdr(stub, blank)
+	}
 
 	if err != nil {
 		return nil, errors.New("Corrupt Transaction record")
