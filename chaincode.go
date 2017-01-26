@@ -327,7 +327,7 @@ func (t *SimpleChaincode) createCattleTransfer(stub shim.ChaincodeStubInterface,
 
 	transferFromdetails.Transfer = append(transferFromdetails.Transfer, args[0])
 	transferFrombytes, err = json.Marshal(transferFromdetails)
-	err = stub.PutState(args[3], transferFrombytes)
+	err = stub.PutState(args[1], transferFrombytes)
 
 	// Creat or update Transaction in To side
 	var transferTodetails TransferDetail
@@ -337,7 +337,7 @@ func (t *SimpleChaincode) createCattleTransfer(stub shim.ChaincodeStubInterface,
 
 	transferTodetails.Transfer = append(transferTodetails.Transfer, args[0])
 	transferTobytes, err = json.Marshal(transferTodetails)
-	err = stub.PutState(args[4], transferTobytes)
+	err = stub.PutState(args[2], transferTobytes)
 
 	if err != nil {
 		return nil, errors.New("Corrupt Transaction record")
