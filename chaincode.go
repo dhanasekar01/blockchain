@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
@@ -291,15 +290,10 @@ func (t *SimpleChaincode) createBatch(stub shim.ChaincodeStubInterface, args []s
 
 	err = stub.PutState(batchkey, batchidbytes)
 
-	// Create taglist
-	liststring := args[2]
+	var tags string
+	tags = args[2]
 
-	logger.Info(args[2])
-
-	var list []string
-
-	dec := json.NewDecoder(strings.NewReader(liststring))
-	dec.Decode(&list)
+	list := []string{tags}
 
 	// Create Batch
 
