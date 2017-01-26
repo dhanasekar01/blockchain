@@ -287,6 +287,8 @@ func (t *SimpleChaincode) createBatch(stub shim.ChaincodeStubInterface, args []s
 
 	batchidbytes, err = json.Marshal(batchlist)
 
+	logger.Debug(batchlist)
+
 	err = stub.PutState(batchkey, batchidbytes)
 
 	// Create taglist
@@ -308,6 +310,8 @@ func (t *SimpleChaincode) createBatch(stub shim.ChaincodeStubInterface, args []s
 		SourceHdr: args[4],
 	}
 
+	logger.Info(batch)
+
 	bytes, _ := json.Marshal(&batch)
 
 	err = stub.PutState(batch.Batchid, bytes)
@@ -317,7 +321,7 @@ func (t *SimpleChaincode) createBatch(stub shim.ChaincodeStubInterface, args []s
 		var blank []string
 		blank[1] = batch.SourceHdr + tag
 		blank[2] = args[5]
-
+		logger.Info(tag)
 		t.updateHdr(stub, blank)
 	}
 
