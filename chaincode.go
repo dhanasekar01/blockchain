@@ -321,7 +321,7 @@ func (t *SimpleChaincode) createCattleTransfer(stub shim.ChaincodeStubInterface,
 	// Creat or update Transaction in From side
 	var transferFromdetails TransferDetail
 
-	transferFrombytes, err := stub.GetState(args[3])
+	transferFrombytes, err := stub.GetState(args[1])
 
 	err = json.Unmarshal(transferFrombytes, &transferFromdetails)
 
@@ -331,7 +331,7 @@ func (t *SimpleChaincode) createCattleTransfer(stub shim.ChaincodeStubInterface,
 
 	// Creat or update Transaction in To side
 	var transferTodetails TransferDetail
-	transferTobytes, err := stub.GetState(args[3])
+	transferTobytes, err := stub.GetState(args[2])
 
 	err = json.Unmarshal(transferTobytes, &transferTodetails)
 
