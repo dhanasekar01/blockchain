@@ -343,7 +343,7 @@ func (t *SimpleChaincode) createCattleTransfer(stub shim.ChaincodeStubInterface,
 		return nil, errors.New("Corrupt Transaction record")
 	}
 
-	return t.updateHdr(stub, args)
+	return nil, nil
 
 }
 
