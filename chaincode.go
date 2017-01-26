@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 )
@@ -70,7 +69,9 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface, function stri
 		return t.createBatch(stub, args)
 	} else if function == "createFoodPack" {
 		return t.createFoodPack(stub, args)
-	}
+	} else if function == "updateHdr" {
+		return t.updateHdr(stub, args)
+	} //updateHdr
 
 	fmt.Println("invoke did not find func: " + function)
 
@@ -258,12 +259,12 @@ func (t *SimpleChaincode) getCattleTrans(stub shim.ChaincodeStubInterface, args 
 }
 
 type Batch struct {
-	Batchid   string   `json:"batchid"`
-	Taglist   []string `json:"taglist"`
-	Batchhdr  string   `json:"batchhdr"`
-	Batchdate string   `json:"batchdate"`
-	Source    string   `json:"source"`
-	SourceHdr string   `json:"sourcehdr"`
+	Batchid   string `json:"batchid"`
+	Taglist   string `json:"taglist"`
+	Batchhdr  string `json:"batchhdr"`
+	Batchdate string `json:"batchdate"`
+	Source    string `json:"source"`
+	SourceHdr string `json:"sourcehdr"`
 }
 
 type BatchList struct {
@@ -287,19 +288,13 @@ func (t *SimpleChaincode) createBatch(stub shim.ChaincodeStubInterface, args []s
 
 	batchidbytes, err = json.Marshal(batchlist)
 
-	logger.Debug(batchlist)
-
 	err = stub.PutState(batchkey, batchidbytes)
-
-	var list []string
-
-	list = strings.Split(args[2], ",")
 
 	// Create Batch
 
 	batch := Batch{
 		Batchid:   args[1],
-		Taglist:   list,
+		Taglist:   args[2],
 		Batchhdr:  batchkey,
 		Batchdate: args[3],
 		Source:    args[0],
@@ -309,17 +304,6 @@ func (t *SimpleChaincode) createBatch(stub shim.ChaincodeStubInterface, args []s
 	bytes, _ := json.Marshal(&batch)
 
 	err = stub.PutState(batch.Batchid, bytes)
-
-	if len(list) > 0 {
-		for _, tag := range list {
-			// Notify Each tag when the block is created
-			var blank []string
-			blank[1] = batch.SourceHdr + tag
-			blank[2] = args[5]
-			logger.Info(tag)
-			t.updateHdr(stub, blank)
-		}
-	}
 
 	if err != nil {
 		return nil, errors.New("Corrupt Transaction record")
