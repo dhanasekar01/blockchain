@@ -198,7 +198,7 @@ func (t *SimpleChaincode) createCattle(stub shim.ChaincodeStubInterface, args []
 	cattletaghdr = "cattlehdr-" + args[3]
 	// Create Block Header json
 	headerBlock := "\"block\":\"" + args[8] + "\", " // Variables to define the JSON
-	headerType := "\"type\":\"Create\", "
+	headerType := "\"type\":\"CREATE\", "
 	headerValue := "\"value\":\"" + args[9] + "\", "
 	prevHash := "\"prevHash\":\"" + args[10] + "\""
 
