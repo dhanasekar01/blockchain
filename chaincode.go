@@ -460,28 +460,15 @@ func (t *SimpleChaincode) createRM(stub shim.ChaincodeStubInterface, args []stri
 	var cattletaghdr string
 
 	cattletaghdr = "rawmeathdr-" + args[0]
-	// Create Block Header json
-	headerBlock := "\"block\":\"" + args[8] + "\", " // Variables to define the JSON
-	headerType := "\"type\":\"RAWMEATCREATION\", "
-	headerValue := "\"value\":\"" + args[9] + "\", "
-	prevHash := "\"prevHash\":\"" + args[10] + "\""
-
-	headerjson := "{" + headerBlock + headerType + headerValue + prevHash + "}"
 
 	// save Blockheader
 	var cattleheaders CattleHeader
 
 	err = json.Unmarshal(blankBytes, &cattleheaders)
-	cattleheaders.Blockheader = append(cattleheaders.Blockheader, headerjson)
+	cattleheaders.Blockheader = append(cattleheaders.Blockheader, args[8])
 
 	bytes, err = json.Marshal(cattleheaders)
 	err = stub.PutState(cattletaghdr, bytes)
-
-	var arguments []string
-	arguments[0] = ""
-	arguments[1] = "cattlehdr-" + args[3]
-	arguments[2] = headerjson
-	t.updateHdr(stub, arguments)
 
 	return nil, nil
 }
