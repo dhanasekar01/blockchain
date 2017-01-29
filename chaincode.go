@@ -558,36 +558,15 @@ func (t *SimpleChaincode) createFoodPack(stub shim.ChaincodeStubInterface, args 
 	var taghdr string
 
 	taghdr = "foodpackhdr-" + args[0]
-	// Create Block Header json
-	headerBlock := "\"block\":\"" + args[12] + "\", " // Variables to define the JSON
-	headerType := "\"type\":\"PACKAGING\", "
-	headerValue := "\"value\":\"" + args[13] + "\", "
-	prevHash := "\"prevHash\":\"" + args[14] + "\""
-
-	headerjson := "{" + headerBlock + headerType + headerValue + prevHash + "}"
 
 	// save Blockheader
 	var cattleheaders CattleHeader
 
 	err = json.Unmarshal(blankBytes, &cattleheaders)
-	cattleheaders.Blockheader = append(cattleheaders.Blockheader, headerjson)
+	cattleheaders.Blockheader = append(cattleheaders.Blockheader, args[12])
 
 	bytes, err = json.Marshal(cattleheaders)
 	err = stub.PutState(taghdr, bytes)
-
-	var arguments []string
-	arguments[0] = ""
-	arguments[1] = "rawmeathdr-" + foodpack.SourceTag
-	arguments[2] = headerjson
-
-	t.updateHdr(stub, arguments) // update raw meat header
-
-	var arguments1 []string
-	arguments1[0] = ""
-	arguments1[1] = args[15]
-	arguments1[2] = headerjson
-
-	t.updateHdr(stub, arguments1) // update cattle header
 
 	return nil, nil
 }
