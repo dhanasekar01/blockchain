@@ -46,6 +46,8 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface, function string
 
 	err := stub.PutState("cattleids", blankBytes)
 	err = stub.PutState("rmids", blankBytes)
+	err = stub.PutState("foodpackids", blankBytes)
+
 	if err != nil {
 		fmt.Println("Failed to initialize cattle Id collection")
 	}
@@ -489,7 +491,7 @@ type FoodPack struct {
 }
 
 type Foodmfg struct {
-	FoodPack []string `json:"foodpacks"`
+	Foodpack []string `json:"foodpacks"`
 }
 
 func (t *SimpleChaincode) createFoodPack(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
@@ -539,7 +541,7 @@ func (t *SimpleChaincode) createFoodPack(stub shim.ChaincodeStubInterface, args 
 		return nil, errors.New("Corrupt Farmer record")
 	}
 
-	foodpacks.FoodPack = append(foodpacks.FoodPack, foodpack.Foodpackid)
+	foodpacks.Foodpack = append(foodpacks.Foodpack, foodpack.Foodpackid)
 
 	bytes, err = json.Marshal(foodpacks)
 
