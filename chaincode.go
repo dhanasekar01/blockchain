@@ -489,17 +489,13 @@ type FoodPack struct {
 }
 
 type Foodmfg struct {
-	FoodPack []string `json:"foodpack"`
+	FoodPack []string `json:"foodpacks"`
 }
 
 func (t *SimpleChaincode) createFoodPack(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	fmt.Println("Initializing Food pack Creation")
 
 	weight, err := strconv.ParseFloat(args[1], 64)
-
-	if args[6] != MANUFACTURER { // Only the farmer can create a cattle
-		return nil, errors.New(fmt.Sprintf("Permission Denied. Create food pack . %v === %v", args[6], MANUFACTURER))
-	}
 
 	foodpack := FoodPack{
 		Foodpackid:          args[0],
@@ -531,16 +527,16 @@ func (t *SimpleChaincode) createFoodPack(stub shim.ChaincodeStubInterface, args 
 	bytes, err = stub.GetState("foodpackids")
 
 	if err != nil {
-		return nil, errors.New("Unable to get foodpackid")
+		return nil, errors.New("Unable to get rmids")
 	}
 
-	// Create food List
+	// Create Cattle List
 	var foodpacks Foodmfg
 
 	err = json.Unmarshal(bytes, &foodpacks)
 
 	if err != nil {
-		return nil, errors.New("Corrupt food pkg record")
+		return nil, errors.New("Corrupt Farmer record")
 	}
 
 	foodpacks.FoodPack = append(foodpacks.FoodPack, foodpack.Foodpackid)
@@ -555,9 +551,9 @@ func (t *SimpleChaincode) createFoodPack(stub shim.ChaincodeStubInterface, args 
 	// Create Empty Blockheader list
 	var blank []string
 	blankBytes, _ := json.Marshal(&blank)
-	var taghdr string
+	var cattletaghdr string
 
-	taghdr = "foodpackhdr-" + args[0]
+	cattletaghdr = "foodpkghdr-" + args[0]
 
 	// save Blockheader
 	var cattleheaders CattleHeader
@@ -566,7 +562,8 @@ func (t *SimpleChaincode) createFoodPack(stub shim.ChaincodeStubInterface, args 
 	cattleheaders.Blockheader = append(cattleheaders.Blockheader, args[12])
 
 	bytes, err = json.Marshal(cattleheaders)
-	err = stub.PutState(taghdr, bytes)
+	err = stub.PutState(cattletaghdr, bytes)
 
 	return nil, nil
+
 }
